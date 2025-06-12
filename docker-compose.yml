@@ -1,0 +1,33 @@
+services:
+  order-service:
+    build:
+      context: ./services/order-service
+      dockerfile: Dockerfile
+    container_name: order-service
+    depends_on:
+      - rabbitmq
+    ports:
+      - "8080:8080"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_STREAM_PORT: 5552
+      RABBITMQ_USER: user
+      RABBITMQ_PASS: pass
+      RABBITMQ_MGMT_PROTOCOL: http
+      RABBITMQ_MGMT_HOST: rabbitmq
+      RABBITMQ_MGMT_PORT: 15672
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3.11-management
+    container_name: rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # Management UI
+      - "5552:5552"     # Streams
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: pass
+    command: bash -lc "rabbitmq-plugins enable --offline rabbitmq_stream && rabbitmq-server"

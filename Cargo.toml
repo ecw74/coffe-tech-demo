@@ -3,4 +3,4 @@ resolver = "3"
 members = [
     "services/order-service",
     "services/inventory-service"
-]
+, "services/machine-service"]

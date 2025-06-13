@@ -40,6 +40,25 @@ this API to request and consume ingredients.
   }
   ```
 
+#### `DEL /fill`
+
+- **Description:** Removes new ingredients from the inventory. Only the provided fields are updated.
+- **Request Body (JSON):**
+  ```json
+  {
+    "beans": 10,
+    "milk": 5
+  }
+  ```
+- **Response (JSON):**
+  ```json
+  {
+    "message": "Inventory updated",
+    "beans": 17,
+    "milk": 8
+  }
+  ```
+
 ---
 
 ### ⚙️ Internal Logic
@@ -59,7 +78,7 @@ a drink.
 | Drink      | Beans | Milk |
 |------------|-------|------|
 | Espresso   | 1     | 0    |
-| Kaffee     | 2     | 0    |
+| Coffee     | 2     | 0    |
 | Cappuccino | 1     | 1    |
 
 ---

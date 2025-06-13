@@ -14,6 +14,8 @@ services:
       - seccomp=unconfined
     ports:
       - "8080:8080"     # order-service
+      - "8081:8081"     # inventory-service
+      - "8082:8082"     # machine-service
     environment:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672

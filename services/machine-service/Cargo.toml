@@ -1,5 +1,5 @@
 [package]
-name = "order-service"
+name = "machine-service"
 version = "0.1.0"
 edition = "2024"
 
@@ -11,10 +11,13 @@ serde_json = "1.0"
 reqwest = { version = "0.12", features = ["json", "gzip"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
-uuid = { version = "1.17", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde", "clock"] }
 anyhow = "1.0"
 utoipa-swagger-ui = { version = "9", features = ["axum"] }
 utoipa = { version = "5.3", features = ["axum_extras", "chrono"] }
 utoipa-axum = "0.2"
+thiserror = "2.0.12"
 lapin = "3.0.0"
+futures-util = "0.3.31"
+tokio-executor-trait = "2.1.3"
+tokio-reactor-trait = "2.0.0"

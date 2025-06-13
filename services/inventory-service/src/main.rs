@@ -1,6 +1,9 @@
-use axum::{extract::Extension, http::StatusCode, Json, Router};
+use axum::{Json, Router, extract::Extension, http::StatusCode};
 use serde::{Deserialize, Serialize};
-use std::{net::{Ipv4Addr, SocketAddr}, sync::Arc};
+use std::{
+    net::{Ipv4Addr, SocketAddr},
+    sync::Arc,
+};
 use tokio::{net::TcpListener, sync::Mutex};
 use tracing::{info, warn};
 use utoipa::{OpenApi, ToSchema};
@@ -68,19 +71,23 @@ struct ErrorResponse {
 struct ApiDoc;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // init tracing
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
     // initialize shared inventory
-    let shared_inventory = Arc::new(Mutex::new(Inventory { beans: 20, milk: 10 }));
+    let shared_inventory = Arc::new(Mutex::new(Inventory {
+        beans: 20,
+        milk: 10,
+    }));
 
     // build OpenAPI router
     let (api_router, api_spec) = OpenApiRouter::with_openapi(ApiDoc::openapi())
         .routes(utoipa_axum::routes![get_fill])
         .routes(utoipa_axum::routes![put_fill])
+        .routes(utoipa_axum::routes![del_fill])
         .split_for_parts();
 
     // construct application
@@ -93,10 +100,17 @@ async fn main() {
         .layer(Extension(shared_inventory));
 
     // bind and run
-    let addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 8080));
+    let port: u16 = std::env::var("SERVICE_PORT")
+        .unwrap_or_else(|_| "8081".into())
+        .parse()?;
+    let addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, port));
     let listener = TcpListener::bind(&addr).await.unwrap();
     info!("Listening on {}", addr);
-    axum::serve(listener, app.into_make_service()).await.unwrap();
+    axum::serve(listener, app.into_make_service())
+        .await
+        .unwrap();
+
+    Ok(())
 }
 
 /// Handler for GET /fill
@@ -109,12 +123,15 @@ async fn main() {
     )
 )]
 async fn get_fill(
-    Extension(state): Extension<SharedInventory>
+    Extension(state): Extension<SharedInventory>,
 ) -> (StatusCode, Json<InventoryResponse>) {
     let inv = state.lock().await;
     (
         StatusCode::OK,
-        Json(InventoryResponse { beans: inv.beans, milk: inv.milk })
+        Json(InventoryResponse {
+            beans: inv.beans,
+            milk: inv.milk,
+        }),
     )
 }
 
@@ -135,19 +152,31 @@ async fn put_fill(
 ) -> Result<(StatusCode, Json<UpdateResponse>), (StatusCode, Json<ErrorResponse>)> {
     // Validate and apply update
     if payload.beans.unwrap_or(0) == 0 && payload.milk.unwrap_or(0) == 0 {
-        let err = ErrorResponse { error: "No values to update".into() };
+        let err = ErrorResponse {
+            error: "No values to update".into(),
+        };
         return Err((StatusCode::BAD_REQUEST, Json(err)));
     }
 
     let mut inv = state.lock().await;
     if let Some(b) = payload.beans {
         inv.beans = inv.beans.checked_add(b).ok_or_else(|| {
-            (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: "Beans overflow".into() }))
+            (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "Beans overflow".into(),
+                }),
+            )
         })?;
     }
     if let Some(m) = payload.milk {
         inv.milk = inv.milk.checked_add(m).ok_or_else(|| {
-            (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: "Milk overflow".into() }))
+            (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "Milk overflow".into(),
+                }),
+            )
         })?;
     }
 
@@ -164,3 +193,65 @@ async fn put_fill(
     Ok((StatusCode::OK, Json(resp)))
 }
 
+/// Handler for DEL /fill
+#[utoipa::path(
+    delete,
+    path = "/fill",
+    tag = "Inventory",
+    request_body(content = InventoryUpdate, content_type = "application/json"),
+    responses(
+        (status = 200, description = "Inventory updated", body = UpdateResponse),
+        (status = 400, description = "Invalid input", body = ErrorResponse)
+    )
+)]
+async fn del_fill(
+    Extension(state): Extension<SharedInventory>,
+    Json(payload): Json<InventoryUpdate>,
+) -> Result<(StatusCode, Json<UpdateResponse>), (StatusCode, Json<ErrorResponse>)> {
+    // Validate and apply update
+    if payload.beans.unwrap_or(0) == 0 && payload.milk.unwrap_or(0) == 0 {
+        let err = ErrorResponse {
+            error: "No values to update".into(),
+        };
+        return Err((StatusCode::BAD_REQUEST, Json(err)));
+    }
+
+    let mut inv = state.lock().await;
+    if let Some(b) = payload.beans {
+        inv.beans = inv.beans.checked_sub(b).ok_or_else(|| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "Beans underflow".into(),
+                }),
+            )
+        })?;
+    }
+    if let Some(m) = payload.milk {
+        inv.milk = inv.milk.checked_sub(m).ok_or_else(|| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "Milk underflow".into(),
+                }),
+            )
+        })?;
+    }
+
+    // Optional warning if low
+    if inv.beans < 2 {
+        warn!("Bean levels critically low: {} beans remaining", inv.beans);
+    }
+
+    // Optional warning if low
+    if inv.milk < 2 {
+        warn!("Milk levels critically low: {} milk remaining", inv.milk);
+    }
+
+    let resp = UpdateResponse {
+        message: "Inventory updated".into(),
+        beans: inv.beans,
+        milk: inv.milk,
+    };
+    Ok((StatusCode::OK, Json(resp)))
+}

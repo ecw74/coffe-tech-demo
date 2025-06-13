@@ -1,0 +1,10 @@
+### Check machine status
+
+GET http://{{host}}:{{port}}/status HTTP/1.1
+
+> {%
+    client.test("Check inventory after updates", function () {
+        client.assert(response.status === 200, "Expected status 200");
+        client.assert(response.body.ready === true, "Expected status ready true");
+    });
+%}

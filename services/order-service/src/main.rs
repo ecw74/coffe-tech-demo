@@ -137,7 +137,7 @@ async fn post_order(
     };
 
     // Acquire lock on the producer and attempt to publish the message
-    let mut prod = producer.lock().await;
+    let prod = producer.lock().await;
     if let Err(e) = prod.publish(order_msg).await {
         error!("Publish failed: {e}");
         let err = ErrorResponse {

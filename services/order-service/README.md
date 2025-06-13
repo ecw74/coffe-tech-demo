@@ -50,7 +50,7 @@ The **Order Service** acts as the system’s entry point. It exposes a REST API 
 
 - **Language:** Rust
 - **Web Framework:** Axum
-- **Messaging:** RabbitMQ Producer `rabbitmq-stream-client`
+- **Messaging:** RabbitMQ Producer `lapin`
 - **Containerization:** Docker-ready
 
 ---

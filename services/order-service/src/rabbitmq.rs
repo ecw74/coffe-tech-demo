@@ -1,19 +1,20 @@
 use anyhow::Result;
-use rabbitmq_stream_client::{
-    Environment, NoDedup,
-    error::StreamCreateError,
-    types::{ByteCapacity, Message, ResponseCode},
+use lapin::{
+    options::{BasicPublishOptions, QueueDeclareOptions},
+    types::FieldTable,
+    BasicProperties, Channel, Connection, ConnectionProperties,
 };
 use serde::Serialize;
 use serde_json;
 use utoipa::{IntoParams, ToSchema};
 
-// Producer encapsulates a RabbitMQ Stream producer instance
+/// Producer encapsulates a RabbitMQ Queue producer instance using lapin
 pub struct Producer {
-    inner: rabbitmq_stream_client::Producer<NoDedup>,
+    channel: Channel,
+    queue_name: String,
 }
 
-// OrderMessage defines the payload structure for publishing orders
+/// OrderMessage defines the payload structure for publishing orders
 #[derive(Serialize, IntoParams)]
 pub struct OrderMessage {
     pub order_id: String,
@@ -23,60 +24,62 @@ pub struct OrderMessage {
 }
 
 impl Producer {
-    /// Initialize the RabbitMQ Stream environment and create a producer for the "order.placed" stream
+    /// Initialize the AMQP connection, open a channel, and declare the queue
     pub async fn init() -> Result<Self> {
-        // Read connection settings from environment variables or use defaults
         let host = std::env::var("RABBITMQ_HOST").unwrap_or_else(|_| "localhost".into());
-        let port: u16 = std::env::var("RABBITMQ_STREAM_PORT")
-            .unwrap_or_else(|_| "5552".into())
-            .parse()?;
+        let port: u16 = std::env::var("RABBITMQ_PORT").unwrap_or_else(|_| "5672".into()).parse()?;
         let user = std::env::var("RABBITMQ_USER").unwrap_or_else(|_| "user".into());
         let pass = std::env::var("RABBITMQ_PASS").unwrap_or_else(|_| "pass".into());
 
-        // Build the RabbitMQ Stream environment with credentials
-        let env = Environment::builder()
-            .host(&host)
-            .port(port)
-            .username(&user)
-            .password(&pass)
-            .build()
+        let addr = format!("amqp://{}:{}@{}:{}/%2f", user, pass, host, port);
+        // Establish connection
+        let conn = Connection::connect(&addr, ConnectionProperties::default()).await?;
+        // Open a channel
+        let channel = conn.create_channel().await?;
+
+        // Enable publisher confirms
+        channel.confirm_select(Default::default()).await?;
+
+        // Declare a durable queue named "order.placed"
+        let queue = "order.placed";
+        channel
+            .queue_declare(
+                queue,
+                QueueDeclareOptions {
+                    durable: true,
+                    ..Default::default()
+                },
+                FieldTable::default(),
+            )
             .await?;
 
-        let stream = "order.placed";
-        // Create the stream if it does not already exist, ignoring the "already exists" error
-        if let Err(e) = env
-            .stream_creator()
-            .max_length(ByteCapacity::GB(1))
-            .create(stream)
-            .await
-        {
-            if let StreamCreateError::Create { status, .. } = &e {
-                if *status != ResponseCode::StreamAlreadyExists {
-                    return Err(e.into());
-                }
-            } else {
-                return Err(e.into());
-            }
-        }
-
-        // Instantiate a producer for the specified stream
-        let producer: rabbitmq_stream_client::Producer<NoDedup> =
-            env.producer().build(stream).await?;
-        Ok(Producer { inner: producer })
+        Ok(Producer {
+            channel,
+            queue_name: queue.to_string(),
+        })
     }
 
-    /// Publish an OrderMessage to the RabbitMQ Stream, awaiting confirmation
-    pub async fn publish(&mut self, order: OrderMessage) -> Result<()> {
-        // Serialize the order payload to JSON bytes
+    /// Publish an OrderMessage to the RabbitMQ queue, awaiting confirmation
+    pub async fn publish(&self, order: OrderMessage) -> Result<()> {
         let payload = serde_json::to_vec(&order)?;
-        // Build the message and send with confirmation
-        let msg = Message::builder().body(payload).build();
-        self.inner.send_with_confirm(msg).await?;
+        // Publish to default exchange with routing key = queue name
+        let confirm = self
+            .channel
+            .basic_publish(
+                "",
+                &self.queue_name,
+                BasicPublishOptions::default(),
+                &payload,
+                BasicProperties::default(),
+            )
+            .await?;
+        // Wait for confirmation
+        confirm.await?;
         Ok(())
     }
 }
 
-// QueueLength represents the JSON response for queue length API
+/// QueueLength represents the JSON response for queue length API
 #[derive(serde::Serialize, ToSchema)]
 pub struct QueueLength {
     pub pending_coffee_orders: u32,
@@ -84,20 +87,15 @@ pub struct QueueLength {
 
 /// Fetch the current number of pending messages in the 'order.placed' queue via the RabbitMQ Management API
 pub async fn fetch_queue_length() -> Result<u32> {
-    // Read management API connection info from environment or use defaults
     let protocol = std::env::var("RABBITMQ_MGMT_PROTOCOL").unwrap_or_else(|_| "http".into());
     let host = std::env::var("RABBITMQ_MGMT_HOST").unwrap_or_else(|_| "localhost".into());
-    let port: u16 = std::env::var("RABBITMQ_MGMT_PORT")
-        .unwrap_or_else(|_| "15672".into())
-        .parse()?;
+    let port: u16 = std::env::var("RABBITMQ_MGMT_PORT").unwrap_or_else(|_| "15672".into()).parse()?;
     let user = std::env::var("RABBITMQ_USER").unwrap_or_else(|_| "user".into());
     let pass = std::env::var("RABBITMQ_PASS").unwrap_or_else(|_| "pass".into());
 
-    // Construct the management API URL for the target queue
     let mgmt_url = format!("{}://{}:{}", protocol, host, port);
     let url = format!("{}/api/queues/%2F/order.placed", mgmt_url);
 
-    // Execute HTTP GET request with basic auth and parse JSON response
     let resp = reqwest::Client::new()
         .get(&url)
         .basic_auth(user, Some(pass))
@@ -106,6 +104,5 @@ pub async fn fetch_queue_length() -> Result<u32> {
         .json::<serde_json::Value>()
         .await?;
 
-    // Extract the 'messages_ready' field or default to zero
     Ok(resp["messages_ready"].as_u64().unwrap_or(0) as u32)
 }

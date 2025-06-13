@@ -11,10 +11,10 @@ serde_json = "1.0"
 reqwest = { version = "0.12", features = ["json", "gzip"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
-rabbitmq-stream-client = "0.9"
 uuid = { version = "1.17", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde", "clock"] }
 anyhow = "1.0"
 utoipa-swagger-ui = { version = "9", features = ["axum"] }
 utoipa = { version = "5.3", features = ["axum_extras", "chrono"] }
 utoipa-axum = "0.2"
+lapin = "3.0.0"

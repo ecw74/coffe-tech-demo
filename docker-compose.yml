@@ -1,8 +1,10 @@
 services:
   order-service:
     build:
-      context: ./services/order-service
+      context: .
       dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: order-service
     container_name: order-service
     depends_on:
       - rabbitmq
@@ -17,6 +19,17 @@ services:
       RABBITMQ_MGMT_PROTOCOL: http
       RABBITMQ_MGMT_HOST: rabbitmq
       RABBITMQ_MGMT_PORT: 15672
+    restart: unless-stopped
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: inventory-service
+    container_name: inventory-service
+    ports:
+      - "8090:8080"
     restart: unless-stopped
 
   rabbitmq:

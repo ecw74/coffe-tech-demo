@@ -81,6 +81,7 @@ async fn main() {
     let (api_router, api_spec) = OpenApiRouter::with_openapi(ApiDoc::openapi())
         .routes(utoipa_axum::routes![get_fill])
         .routes(utoipa_axum::routes![put_fill])
+        .routes(utoipa_axum::routes![del_fill])
         .split_for_parts();
 
     // construct application
@@ -93,7 +94,7 @@ async fn main() {
         .layer(Extension(shared_inventory));
 
     // bind and run
-    let addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 8080));
+    let addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 8081));
     let listener = TcpListener::bind(&addr).await.unwrap();
     info!("Listening on {}", addr);
     axum::serve(listener, app.into_make_service()).await.unwrap();
@@ -154,6 +155,57 @@ async fn put_fill(
     // Optional warning if low
     if inv.beans < 2 {
         warn!("Bean levels critically low: {} beans remaining", inv.beans);
+    }
+
+    let resp = UpdateResponse {
+        message: "Inventory updated".into(),
+        beans: inv.beans,
+        milk: inv.milk,
+    };
+    Ok((StatusCode::OK, Json(resp)))
+}
+
+/// Handler for DEL /fill
+#[utoipa::path(
+    delete,
+    path = "/fill",
+    tag = "Inventory",
+    request_body(content = InventoryUpdate, content_type = "application/json"),
+    responses(
+        (status = 200, description = "Inventory updated", body = UpdateResponse),
+        (status = 400, description = "Invalid input", body = ErrorResponse)
+    )
+)]
+async fn del_fill(
+    Extension(state): Extension<SharedInventory>,
+    Json(payload): Json<InventoryUpdate>,
+) -> Result<(StatusCode, Json<UpdateResponse>), (StatusCode, Json<ErrorResponse>)> {
+    // Validate and apply update
+    if payload.beans.unwrap_or(0) == 0 && payload.milk.unwrap_or(0) == 0 {
+        let err = ErrorResponse { error: "No values to update".into() };
+        return Err((StatusCode::BAD_REQUEST, Json(err)));
+    }
+
+    let mut inv = state.lock().await;
+    if let Some(b) = payload.beans {
+        inv.beans = inv.beans.checked_sub(b).ok_or_else(|| {
+            (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: "Beans underflow".into() }))
+        })?;
+    }
+    if let Some(m) = payload.milk {
+        inv.milk = inv.milk.checked_sub(m).ok_or_else(|| {
+            (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: "Milk underflow".into() }))
+        })?;
+    }
+
+    // Optional warning if low
+    if inv.beans < 2 {
+        warn!("Bean levels critically low: {} beans remaining", inv.beans);
+    }
+
+    // Optional warning if low
+    if inv.milk < 2 {
+        warn!("Milk levels critically low: {} milk remaining", inv.milk);
     }
 
     let resp = UpdateResponse {

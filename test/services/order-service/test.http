@@ -1,0 +1,60 @@
+### Place valid espresso order
+POST http://{{host}}:{{port}}/order HTTP/1.1
+Content-Type: application/json
+
+{
+  "type": "espresso"
+}
+
+> {%
+    client.test("Place valid espresso order", function () {
+        client.assert(response.status === 202, "Expected status 202");
+        client.assert(response.body.message === "Order received", "Expected body.message to be 'Order received'");
+        client.assert(response.body.order_id != null, "Expected body.order_id to be non-null");
+    });
+%}
+
+### Place valid coffee order
+POST http://{{host}}:{{port}}/order HTTP/1.1
+Content-Type: application/json
+
+{
+  "type": "coffee"
+}
+
+> {%
+    client.test("Place valid coffee order", function () {
+        client.assert(response.status === 202, "Expected status 202");
+        client.assert(/^[0-9a-fA-F-]{36}$/.test(response.body.order_id),
+            "Expected body.order_id to match UUID format");
+    });
+%}
+
+### Place invalid tea order
+POST http://{{host}}:{{port}}/order HTTP/1.1
+Content-Type: application/json
+
+{
+  "type": "tea"
+}
+
+> {%
+    client.test("Place invalid tea order", function () {
+        client.assert(response.status === 400, "Expected status 400");
+        client.assert(response.body.error === "This is a coffee-only establishment ☕",
+            "Expected body.error to be 'This is a coffee-only establishment ☕'");
+    });
+%}
+
+### Check queue length (should be >= 0)
+GET http://{{host}}:{{port}}/orders/queue-length HTTP/1.1
+
+> {%
+    client.test("Check queue length", function () {
+        client.assert(response.status === 200, "Expected status 200");
+        client.assert(typeof response.body.pending_coffee_orders === "number",
+            "Expected pending_coffee_orders to be a number");
+        client.assert(response.body.pending_coffee_orders >= 0,
+            "Expected pending_coffee_orders to be >= 0");
+    });
+%}

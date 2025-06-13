@@ -15,7 +15,7 @@ preparation. It also exposes a REST endpoint to provide its current operational 
   ```text
   {
     "order_id": "abc-123",
-    "type": "espresso" | "kaffee" | "cappuccino",
+    "type": "espresso" | "coffee" | "cappuccino",
     "timestamp": "2025-06-11T18:42:00Z"
   }
   ```
@@ -95,7 +95,7 @@ GET /status
   "ready": true,
   "last_order": {
     "order_id": "def-456",
-    "type": "kaffee",
+    "type": "coffee",
     "status": "done",
     "finished_at": "2025-06-11T18:46:30Z"
   }

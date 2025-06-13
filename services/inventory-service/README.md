@@ -59,7 +59,7 @@ a drink.
 | Drink      | Beans | Milk |
 |------------|-------|------|
 | Espresso   | 1     | 0    |
-| Kaffee     | 2     | 0    |
+| Coffee     | 2     | 0    |
 | Cappuccino | 1     | 1    |
 
 ---

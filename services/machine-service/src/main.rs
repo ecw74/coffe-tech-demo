@@ -1,10 +1,14 @@
-mod rabbitmq;
 mod inventory;
+mod rabbitmq;
 mod status;
 
-use axum::{Router, Extension};
-use std::{net::SocketAddr, sync::{Arc, Mutex}};
+use axum::{Extension, Router};
+use status::StatusState;
 use std::net::Ipv4Addr;
+use std::{
+    net::SocketAddr,
+    sync::{Arc, Mutex},
+};
 use tokio::net::TcpListener;
 use tokio::spawn;
 use tracing::info;
@@ -12,9 +16,8 @@ use tracing_subscriber;
 use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_swagger_ui::SwaggerUi;
-use status::StatusState;
 
-// Define OpenAPI documentation for the API
+// Define OpenAPI documentation for the service
 #[derive(OpenApi)]
 #[openapi(
     paths(status::get_status),
@@ -26,39 +29,51 @@ use status::StatusState;
 struct ApiDoc;
 
 #[tokio::main]
-async fn main() {
-    // Logging initialisieren
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Initialize tracing subscriber for structured logging
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    // Gemeinsamen Status initialisieren
+    // Initialize shared machine status state wrapped in a thread-safe mutex
     let shared_state = Arc::new(Mutex::new(StatusState::new()));
 
-    // RabbitMQ-Consumer im Hintergrund starten
+    // Start the RabbitMQ consumer in the background, passing cloned state
     let consumer_state = shared_state.clone();
     spawn(async move {
-        rabbitmq::Consumer::run(consumer_state).await.expect("TODO: panic message");
+        rabbitmq::Consumer::run(consumer_state)
+            .await
+            .expect("Consumer encountered an unrecoverable error");
     });
 
+    // Build the OpenAPI router and specification
     let (api_router, api_spec) = OpenApiRouter::with_openapi(ApiDoc::openapi())
         .routes(utoipa_axum::routes![status::get_status])
         .split_for_parts();
 
-    // Construct the full application router
+    // Construct the main application router
     let app = Router::new()
-        // Serve Swagger UI at /swagger-ui
+        // Serve Swagger UI at /swagger-ui with OpenAPI JSON at /api-docs/openapi.json
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api_spec.clone()))
-        // Mount the API routes
+        // Mount API endpoints
         .merge(api_router)
-        // Add shared producer as an extension for handlers to access
+        // Make shared state available to handlers via Axum extension
         .layer(Extension(shared_state));
 
-    // Server starten
-    let addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 8082));
+    // Determine service port from environment or default to 8082
+    let port: u16 = std::env::var("SERVICE_PORT")
+        .unwrap_or_else(|_| "8082".into())
+        .parse()?;
+    let addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, port));
+
+    // Bind TCP listener
     let listener = TcpListener::bind(&addr).await.unwrap();
     info!("Listening on {}", addr);
+
+    // Start the Axum HTTP server
     axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
+
+    Ok(())
 }

@@ -16,7 +16,9 @@ RUN cargo build --release -p ${SERVICE_NAME}
 FROM debian:bookworm-slim
 
 ARG SERVICE_NAME
+ARG SERVICE_PORT=8080
 ENV SERVICE_NAME=${SERVICE_NAME}
+ENV SERVICE_PORT=${SERVICE_PORT}
 
 # Install necessary system libs (if needed, e.g. for OpenSSL)
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
@@ -27,6 +29,6 @@ COPY --from=builder /app/target/release/${SERVICE_NAME} .
 
 ENV RUST_LOG=info
 
-EXPOSE 8080
+EXPOSE ${SERVICE_PORT}
 
 CMD ["sh", "-c", "exec ./${SERVICE_NAME}"]

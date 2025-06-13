@@ -1,8 +1,8 @@
 use anyhow::Result;
 use lapin::{
+    BasicProperties, Channel, Connection, ConnectionProperties,
     options::{BasicPublishOptions, QueueDeclareOptions},
     types::FieldTable,
-    BasicProperties, Channel, Connection, ConnectionProperties,
 };
 use serde::Serialize;
 use serde_json;
@@ -27,7 +27,9 @@ impl Producer {
     /// Initialize the AMQP connection, open a channel, and declare the queue
     pub async fn init() -> Result<Self> {
         let host = std::env::var("RABBITMQ_HOST").unwrap_or_else(|_| "localhost".into());
-        let port: u16 = std::env::var("RABBITMQ_PORT").unwrap_or_else(|_| "5672".into()).parse()?;
+        let port: u16 = std::env::var("RABBITMQ_PORT")
+            .unwrap_or_else(|_| "5672".into())
+            .parse()?;
         let user = std::env::var("RABBITMQ_USER").unwrap_or_else(|_| "user".into());
         let pass = std::env::var("RABBITMQ_PASS").unwrap_or_else(|_| "pass".into());
 
@@ -89,7 +91,9 @@ pub struct QueueLength {
 pub async fn fetch_queue_length() -> Result<u32> {
     let protocol = std::env::var("RABBITMQ_MGMT_PROTOCOL").unwrap_or_else(|_| "http".into());
     let host = std::env::var("RABBITMQ_MGMT_HOST").unwrap_or_else(|_| "localhost".into());
-    let port: u16 = std::env::var("RABBITMQ_MGMT_PORT").unwrap_or_else(|_| "15672".into()).parse()?;
+    let port: u16 = std::env::var("RABBITMQ_MGMT_PORT")
+        .unwrap_or_else(|_| "15672".into())
+        .parse()?;
     let user = std::env::var("RABBITMQ_USER").unwrap_or_else(|_| "user".into());
     let pass = std::env::var("RABBITMQ_PASS").unwrap_or_else(|_| "pass".into());
 

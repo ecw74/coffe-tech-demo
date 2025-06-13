@@ -51,7 +51,7 @@ struct ApiDoc;
 
 // Main entry point of the application
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing subscriber for logging with environment-based level filter
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -87,12 +87,18 @@ async fn main() {
         .layer(Extension(shared_producer));
 
     // Bind to 0.0.0.0:8080 and start serving
-    let addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 8080));
+
+    let port: u16 = std::env::var("SERVICE_PORT")
+        .unwrap_or_else(|_| "8080".into())
+        .parse()?;
+    let addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, port));
     let listener = TcpListener::bind(&addr).await.unwrap();
     info!("Listening on {}", addr);
     axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
+
+    Ok(())
 }
 
 /// Handler for placing a new coffee order

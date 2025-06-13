@@ -1,0 +1,39 @@
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspace:cached
+      - ~/.gitconfig:/home/vscode/.gitconfig:ro
+    depends_on:
+      - rabbitmq
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp=unconfined
+    ports:
+      - "8080:8080"     # order-service
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_STREAM_PORT: 5552
+      RABBITMQ_USER: user
+      RABBITMQ_PASS: pass
+      RABBITMQ_MGMT_PROTOCOL: http
+      RABBITMQ_MGMT_HOST: rabbitmq
+      RABBITMQ_MGMT_PORT: 15672
+    command: sleep infinity
+
+  rabbitmq:
+    image: rabbitmq:3.11-management
+    container_name: rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # Management UI
+      - "5552:5552"     # Streams
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: pass
+    command: bash -lc "rabbitmq-plugins enable --offline rabbitmq_stream && rabbitmq-server"

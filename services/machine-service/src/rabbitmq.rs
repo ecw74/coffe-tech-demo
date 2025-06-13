@@ -135,17 +135,18 @@ impl Consumer {
             return;
         }
 
+        tracing::info!(
+            "Stock before deduction: {} beans, {} milk",
+            available.beans,
+            available.milk
+        );
+
         // Deduct the required ingredients
         if inventory::deduct_stock(beans, milk).await.is_err() {
             tracing::error!("Failed to deduct ingredients for order {}", order.order_id);
             return;
         }
 
-        tracing::info!(
-            "Stock after deduction: {} beans, {} milk",
-            available.beans,
-            available.milk
-        );
         tracing::info!(
             "Received order {} (type {}) at {}",
             order.order_id,

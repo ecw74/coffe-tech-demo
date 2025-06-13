@@ -1,0 +1,82 @@
+### Check initial inventory
+
+GET http://{{host}}:{{port}}/fill HTTP/1.1
+
+> {%
+    client.test("Check initial inventory", function () {
+        client.assert(response.status === 200, "Expected status 200");
+        client.assert(typeof response.body.beans === "number", "Expected beans to be a number");
+        client.assert(typeof response.body.milk === "number", "Expected milk to be a number");
+        client.assert(response.body.beans == 20, "Expected beans to be == 20");
+        client.assert(response.body.milk == 10, "Expected milk to be == 10");
+    });
+%}
+
+### Refill inventory with both fields
+
+PUT http://{{host}}:{{port}}/fill HTTP/1.1
+Content-Type: application/json
+
+{
+  "beans": 10,
+  "milk": 5
+}
+
+> {%
+    client.test("Refill inventory with both beans and milk", function () {
+        client.assert(response.status === 200, "Expected status 200");
+        client.assert(response.body.message === "Inventory updated", "Expected message to be 'Inventory updated'");
+        client.assert(typeof response.body.beans === "number", "Expected beans to be a number");
+        client.assert(typeof response.body.milk === "number", "Expected milk to be a number");
+        client.assert(response.body.beans == 30, "Expected beans to have increased by at least 10");
+        client.assert(response.body.milk == 15, "Expected milk to have increased by at least 5");
+    });
+%}
+
+### Partial refill (beans only)
+
+PUT http://{{host}}:{{port}}/fill HTTP/1.1
+Content-Type: application/json
+
+{
+  "beans": 3
+}
+
+> {%
+    client.test("Partial refill: beans only", function () {
+        client.assert(response.status === 200, "Expected status 200");
+        client.assert(response.body.message === "Inventory updated", "Expected message to be 'Inventory updated'");
+        client.assert(typeof response.body.beans === "number", "Expected beans to be a number");
+        client.assert(typeof response.body.milk === "number", "Expected milk to be a number");
+        client.assert(response.body.beans == 33, "Expected beans to have increased by at least 3");
+    });
+%}
+
+### Invalid refill with no fields
+
+PUT http://{{host}}:{{port}}/fill HTTP/1.1
+Content-Type: application/json
+
+{}
+
+> {%
+    client.test("Invalid refill with no fields", function () {
+        client.assert(response.status === 400, "Expected status 400");
+        client.assert(response.body.error === "No values to update", "Expected error to be 'No values to update'");
+    });
+%}
+
+### Check inventory after updates
+
+GET http://{{host}}:{{port}}/fill HTTP/1.1
+
+> {%
+    client.test("Check inventory after updates", function () {
+        client.assert(response.status === 200, "Expected status 200");
+        client.assert(typeof response.body.beans === "number", "Expected beans to be a number");
+        client.assert(typeof response.body.milk === "number", "Expected milk to be a number");
+        client.assert(response.body.beans == 33, "Expected total beans to be at least 13");
+        client.assert(response.body.milk == 15, "Expected total milk to be at least 5");
+    });
+%}
+

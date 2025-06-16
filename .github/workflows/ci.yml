@@ -1,0 +1,47 @@
+name: CI Pipeline
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    name: 🧹 Lint all services
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Run clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  fmt:
+    name: 🎨 Check code formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  docker:
+    name: 🐳 Build Docker images
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - service: order-service
+            port: 8080
+          - service: inventory-service
+            port: 8081
+          - service: machine-service
+            port: 8082
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build --build-arg SERVICE_NAME=${{ matrix.service }} --build-arg SERVICE_PORT=${{ matrix.port }} -t ${{ matrix.service }} .
+

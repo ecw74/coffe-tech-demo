@@ -5,7 +5,6 @@ use lapin::{
     types::FieldTable,
 };
 use serde::Serialize;
-use serde_json;
 use utoipa::{IntoParams, ToSchema};
 
 /// Producer encapsulates a RabbitMQ Queue producer instance using lapin

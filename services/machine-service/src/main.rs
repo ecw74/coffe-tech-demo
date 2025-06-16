@@ -12,7 +12,6 @@ use std::{
 use tokio::net::TcpListener;
 use tokio::spawn;
 use tracing::info;
-use tracing_subscriber;
 use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_swagger_ui::SwaggerUi;

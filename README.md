@@ -24,9 +24,9 @@ RabbitMQ.
                +-------------+
                      |
                      v
-               +-------------+         REST       +----------------+
+               +-------------+         REST        +----------------+
                | Machine     | <-----------------> | Inventory      |
-               |  Service    |   GET/PUT /fill     |   Service      |
+               |  Service    |  GET/PUT/DEL /fill  |   Service      |
                +-------------+                     +----------------+
                      |
            GET /status (machine state)

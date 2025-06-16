@@ -24,7 +24,7 @@ preparation. It also exposes a REST endpoint to provide its current operational 
     1. Receive message from `order.placed`
     2. Determine ingredient requirements based on drink type
     3. Check current stock via `GET /fill` from Inventory Service
-    4. Deduct ingredients using `PUT /fill` request
+    4. Deduct ingredients using `DEL /fill` request
     5. Simulate preparation (e.g., sleep or log)
     6. Update internal status
 

@@ -42,7 +42,7 @@ this API to request and consume ingredients.
 
 #### `DEL /fill`
 
-- **Description:** Removes new ingredients from the inventory. Only the provided fields are updated.
+- **Description:** Deduct ingredients from the inventory. Only the provided fields are updated.
 - **Request Body (JSON):**
   ```json
   {
@@ -63,7 +63,7 @@ this API to request and consume ingredients.
 
 ### ⚙️ Internal Logic
 
-- Inventory is stored either in-memory or using lightweight persistence (e.g. SQLite or Redis).
+- Inventory is stored either in-memory.
 - Partial updates are supported: e.g. only `milk` can be increased.
 - Values are always **added** to the current stock.
 - No negative values allowed; validation is enforced.
@@ -72,7 +72,7 @@ this API to request and consume ingredients.
 
 ### 🧠 Usage by Machine Service
 
-The Machine Service calls `GET /fill` to check current stock and then `PUT /fill` to deduct ingredients after preparing
+The Machine Service calls `GET /fill` to check current stock and then `DEL /fill` to deduct ingredients after preparing
 a drink.
 
 | Drink      | Beans | Milk |
@@ -95,7 +95,7 @@ a drink.
 ### 🔐 Validation & Error Handling
 
 - Input validation for non-negative integers
-- Missing fields are ignored during `PUT /fill`
+- Missing fields are ignored during `PUT /fill` and `DEL /fill`
 - Proper HTTP status codes used (`400` for bad requests, `200` for success)
 
 ---
